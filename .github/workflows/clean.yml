@@ -1,0 +1,19 @@
+name: Clean Repository Pollution
+on:
+  workflow_dispatch:
+jobs:
+  clean:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      - name: Force Remove Broken Frontend Submodule
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@://github.com"
+          rm -rf frontend
+          git rm --cached -f frontend || true
+          git add .
+          git commit -m "Enterprise Clean: Broken frontend submodule permanently removed" || true
+          git push origin main
+          
