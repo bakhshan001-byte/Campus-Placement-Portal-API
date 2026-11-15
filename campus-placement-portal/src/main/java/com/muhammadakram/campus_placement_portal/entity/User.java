@@ -1,37 +1,23 @@
-package com.muhammadakram.campus_placement_portal.entity;
+@PostMapping("/login")
+    public ResponseEntity<?> loginUser(@RequestBody User loginData) {
+        String email = loginData.getEmail() == null ? "" : loginData.getEmail().trim();
+        User existingUser = userRepository.findByEmail(email);
 
-import jakarta.persistence.*;
-import lombok.Data;
+        if (existingUser == null) {
+            return ResponseEntity.badRequest().body("DEBUG: user not found");
+        }
 
-@Data
-@Entity
-@Table(name = "users")
-public class User {
+        boolean isPasswordMatch = passwordEncoder.matches(loginData.getPassword(), existingUser.getPassword());
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+        if (!isPasswordMatch) {
+            return ResponseEntity.badRequest().body("DEBUG: wrong password");
+        }
 
-    private String name;
+        String token = jwtUtil.generateToken(existingUser.getEmail());
 
-    @Column(unique = true)
-    private String email;
+        Map<String, Object> response = new HashMap<>();
+        response.put("token", token);
+        response.put("user", existingUser);
 
-    private String password;
-
-    private String role; // STUDENT, COMPANY, ya ADMIN
-
-    // ==========================================
-    // Naya column OTP save karne ke liye
-    // ==========================================
-    private String otp;
-
-    // ==========================================
-    // Profile Update ke naye columns
-    // ==========================================
-    private String phone;
-
-    @Lob // @Lob ka matlab hai ke isme bari file (tasweer) save hogi
-    @Column(columnDefinition = "LONGTEXT")
-    private String profileImage;
-}
+        return ResponseEntity.ok(response);
+    }
