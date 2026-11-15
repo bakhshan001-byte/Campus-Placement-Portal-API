@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -13,6 +14,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -39,18 +41,28 @@ public class SecurityConfig {
             .cors(cors ->
                 cors.configurationSource(corsConfigurationSource())
             )
+
             .csrf(csrf -> csrf.disable())
 
             .exceptionHandling(exception -> exception
+
                 .authenticationEntryPoint((request, response, authException) -> {
                     response.sendError(
                         HttpStatus.UNAUTHORIZED.value(),
-                        "Please login again"
+                        "Unauthorized. Please login again."
+                    );
+                })
+
+                .accessDeniedHandler((request, response, accessDeniedException) -> {
+                    response.sendError(
+                        HttpStatus.FORBIDDEN.value(),
+                        "Access denied."
                     );
                 })
             )
 
             .authorizeHttpRequests(auth -> auth
+
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                 .requestMatchers(
@@ -83,15 +95,20 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
 
         configuration.setAllowedOrigins(Arrays.asList(
-            "https://t-portal-ui.vercel.app",
+            "https://campus-placement-portal-ui.vercel.app",
             "http://localhost:3000"
         ));
 
         configuration.setAllowedMethods(Arrays.asList(
-            "GET", "POST", "PUT", "DELETE", "OPTIONS"
+            "GET",
+            "POST",
+            "PUT",
+            "DELETE",
+            "OPTIONS"
         ));
 
         configuration.setAllowedHeaders(Arrays.asList("*"));
+
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source =
