@@ -30,6 +30,7 @@ public class JwtRequestFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
+
         String path = request.getServletPath();
 
         return request.getMethod().equals("OPTIONS")
@@ -46,10 +47,12 @@ public class JwtRequestFilter extends OncePerRequestFilter {
             FilterChain chain
     ) throws ServletException, IOException {
 
-        String authorizationHeader = request.getHeader("Authorization");
+        String authorizationHeader =
+                request.getHeader("Authorization");
 
         if (authorizationHeader == null ||
                 !authorizationHeader.startsWith("Bearer ")) {
+
             chain.doFilter(request, response);
             return;
         }
@@ -57,19 +60,31 @@ public class JwtRequestFilter extends OncePerRequestFilter {
         String jwt = authorizationHeader.substring(7);
 
         try {
+
             String email = jwtUtil.extractEmail(jwt);
 
             if (email == null || !jwtUtil.isTokenValid(jwt, email)) {
-                response.sendError(401, "Invalid or expired token");
+
+                response.sendError(
+                    HttpServletResponse.SC_UNAUTHORIZED,
+                    "Invalid or expired token"
+                );
+
                 return;
             }
 
-            if (SecurityContextHolder.getContext().getAuthentication() == null) {
+            if (SecurityContextHolder.getContext()
+                    .getAuthentication() == null) {
 
                 User user = userRepository.findByEmail(email);
 
                 if (user == null) {
-                    response.sendError(401, "User not found");
+
+                    response.sendError(
+                        HttpServletResponse.SC_UNAUTHORIZED,
+                        "User not found"
+                    );
+
                     return;
                 }
 
@@ -81,8 +96,8 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                         );
 
                 authToken.setDetails(
-                        new WebAuthenticationDetailsSource()
-                                .buildDetails(request)
+                    new WebAuthenticationDetailsSource()
+                        .buildDetails(request)
                 );
 
                 SecurityContextHolder.getContext()
@@ -90,8 +105,18 @@ public class JwtRequestFilter extends OncePerRequestFilter {
             }
 
         } catch (Exception e) {
+
             SecurityContextHolder.clearContext();
-            response.sendError(401, "Invalid or expired token");
+
+            System.out.println(
+                "JWT Authentication Error: " + e.getMessage()
+            );
+
+            response.sendError(
+                HttpServletResponse.SC_UNAUTHORIZED,
+                "Invalid or expired token"
+            );
+
             return;
         }
 
