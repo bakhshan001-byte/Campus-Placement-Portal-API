@@ -1,11 +1,14 @@
+
 package com.muhammadakram.campus_placement_portal.security;
 
 import com.muhammadakram.campus_placement_portal.entity.User;
 import com.muhammadakram.campus_placement_portal.repository.UserRepository;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -26,40 +29,70 @@ public class JwtRequestFilter extends OncePerRequestFilter {
     private UserRepository userRepository;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
-            throws ServletException, IOException {
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getServletPath();
 
-        final String authorizationHeader = request.getHeader("Authorization");
+        return request.getMethod().equals("OPTIONS")
+                || path.equals("/api/users/login")
+                || path.equals("/api/users/register")
+                || path.equals("/api/users/forgot-password")
+                || path.equals("/api/users/reset-password");
+    }
 
-        String email = null;
-        String jwt = null;
+    @Override
+    protected void doFilterInternal(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain chain
+    ) throws ServletException, IOException {
 
-        if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
-            jwt = authorizationHeader.substring(7);
-            try {
-                email = jwtUtil.extractEmail(jwt);
-            } catch (Exception e) {
-                System.out.println("Invalid or Expired Token");
-            }
+        String authorizationHeader = request.getHeader("Authorization");
+
+        if (authorizationHeader == null ||
+                !authorizationHeader.startsWith("Bearer ")) {
+            chain.doFilter(request, response);
+            return;
         }
 
-        if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            if (jwtUtil.isTokenValid(jwt, email)) {
+        String jwt = authorizationHeader.substring(7);
 
-                // UserRepository se direct user nikal liya
+        try {
+            String email = jwtUtil.extractEmail(jwt);
+
+            if (email == null || !jwtUtil.isTokenValid(jwt, email)) {
+                response.sendError(401, "Invalid or expired token");
+                return;
+            }
+
+            if (SecurityContextHolder.getContext().getAuthentication() == null) {
+
                 User user = userRepository.findByEmail(email);
 
-                if (user != null) {
-                    UsernamePasswordAuthenticationToken authToken =
-                            new UsernamePasswordAuthenticationToken(email, null, new ArrayList<>());
-                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    SecurityContextHolder.getContext().setAuthentication(authToken);
-                } else {
-                    // Agar user delete ya ban ho chuka hai toh request block kar do
-                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized: User account has been removed or banned.");
+                if (user == null) {
+                    response.sendError(401, "User not found");
                     return;
                 }
+
+                UsernamePasswordAuthenticationToken authToken =
+                        new UsernamePasswordAuthenticationToken(
+                                email,
+                                null,
+                                new ArrayList<>()
+                        );
+
+                authToken.setDetails(
+                        new WebAuthenticationDetailsSource()
+                                .buildDetails(request)
+                );
+
+                SecurityContextHolder.getContext()
+                        .setAuthentication(authToken);
             }
+
+        } catch (Exception e) {
+            SecurityContextHolder.clearContext();
+            response.sendError(401, "Invalid or expired token");
+            return;
         }
 
         chain.doFilter(request, response);
