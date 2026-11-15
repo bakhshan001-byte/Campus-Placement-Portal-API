@@ -1,11 +1,12 @@
-package com.muhammadakram.campus_placement_portal.security; // DHYAN RAHE: 'com.yourpackage' ko apne actual project package se replace kar dein (jaise com.example.campus.security)
+package com.muhammadakram.campus_placement_portal.security;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
 import java.util.function.Function;
@@ -13,11 +14,17 @@ import java.util.function.Function;
 @Component
 public class JwtUtil {
 
-    // Yeh secret key tokens ko secure karne ke liye use hoti hai
-    private static final Key SECRET_KEY = Keys.secretKeyFor(SignatureAlgorithm.HS256);
+    // Secret key ab Render ke Environment Variable (JWT_SECRET) se aati hai,
+    // is liye server restart hone par bhi tokens valid rehte hain
+    @Value("${JWT_SECRET}")
+    private String secret;
 
-    // Token ki validity: 24 ghante (24 hours)
+    // Token ki validity: 24 ghante
     private static final long TOKEN_VALIDITY = 1000 * 60 * 60 * 24;
+
+    private Key getSigningKey() {
+        return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+    }
 
     // Token generate karne ka method
     public String generateToken(String email) {
@@ -25,7 +32,7 @@ public class JwtUtil {
                 .setSubject(email)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + TOKEN_VALIDITY))
-                .signWith(SECRET_KEY)
+                .signWith(getSigningKey())
                 .compact();
     }
 
@@ -35,7 +42,11 @@ public class JwtUtil {
     }
 
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
-        final Claims claims = Jwts.parserBuilder().setSigningKey(SECRET_KEY).build().parseClaimsJws(token).getBody();
+        final Claims claims = Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
         return claimsResolver.apply(claims);
     }
 
