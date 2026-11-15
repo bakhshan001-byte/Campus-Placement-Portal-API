@@ -47,8 +47,14 @@ public class UserController {
         String hashedPassword = passwordEncoder.encode(user.getPassword());
         user.setPassword(hashedPassword);
 
-        User savedUser = userService.registerUser(user);
-        return ResponseEntity.ok(savedUser);
+        User savedUser = userRepository.save(user);
+try {
+    emailService.sendWelcomeEmail(user.getEmail(), user.getName());
+} catch (Exception e) {
+    System.out.println("Email skipped: " + e.getMessage());
+}
+return ResponseEntity.ok(savedUser);
+        
     }
 
     // ==========================================
